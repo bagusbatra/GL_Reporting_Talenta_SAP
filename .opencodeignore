@@ -1,0 +1,47 @@
+# Laravel - vendor (dependencies pihak ketiga)
+vendor/
+
+# Storage - log, cache, uploaded files, compiled views
+storage/
+bootstrap/cache/
+
+# Node modules
+node_modules/
+
+# Build output
+public/build/
+public/hot
+
+# File konfigurasi lingkungan (berisi secrets) & lock files
+.env
+composer.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# File database SQLite
+database/database.sqlite
+
+# File binary / assets tidak relevan
+*.xlsx
+*.xls
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.woff
+*.woff2
+*.ttf
+*.eot
+*.zip
+*.tar
+*.gz
+
+# File log
+*.log
+
+# Git internal
+.git/

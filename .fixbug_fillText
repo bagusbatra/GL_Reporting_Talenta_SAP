@@ -1,0 +1,37 @@
+1. Upload reference file TIDAK bisa override knowledge base yang sudah ada
+FillTextService.php:50:
+if (!isset($referenceMap[$key]) && !empty($ref['text'])) {
+Kode !isset($referenceMap[$key]) berarti jika suatu account|cc sudah ada di database, 
+referensi dari file upload diabaikan. User yang upload file referensi expecting untuk override data lama 
+tidak akan berhasil.
+
+2. DB save failure silent — data tidak tersimpan permanen
+FillTextService.php:337-339, 369-371, 400-402 — semua try-catch dengan catch kosong. Contoh ketika 
+saveManual sukses update file Excel tapi gagal simpan ke DB (connection issue, constraint), user tetap 
+dapat "Berhasil!" padahal knowledge base tidak ter-update. Fill berikutnya data akan hilang.
+
+3. buildLookupMap() load SEMUA reference ke memory
+GlTextReference.php:53-63 — chunk 500 memang mencegah query overload, tapi tetap menyimpan semua hasil 
+di array PHP. Dengan ribuan reference, memory per request fill text bisa membesar.
+
+4. use_count tidak increment saat reference di-match
+Di FillTextService::fill(), ketika text berasal dari 'reference' (line 110-112), use_count tidak ditambah. 
+Hanya auto-generated text (prefix_only, prefix_with_cc) yang di-increment via learnOrUpdate(). Akibatnya 
+statistik most_used tidak akurat.
+
+5. Problem text ikut ke reference map kalau dari upload yang sudah ada di DB
+Jika suatu account|cc sudah punya reference problem (misal "Gaji (NEED FILL)") dan user upload file 
+baru dengan text valid untuk key yang sama, file upload diabaikan (point 1). Satu-satunya cara fix 
+adalah edit manual via UI Text References atau isi manual lewat form fill.
+
+6. Auto-sync prefix di frontend tidak 100% reliable
+fill_text.result.blade.php:213-224 — JS sync value antar input dengan data-account yang sama. Tapi kalau 
+user punya 2 row account sama tapi beda cost center, prefix tetap di-sync. Ini sesuai UX sih, tapi secara 
+teknis prefix per account seharusnya sama. Bukan bug.
+
+7. File reference yang di-upload langsung di-learn ke DB (parseReferenceFile() line 269) 
+SEBELUM di-merge ke $referenceMap di fill()
+Akibatnya: file upload diproses di parseReferenceFile() dan data disimpan ke DB via learnOrUpdate(), 
+lalu di fill() reference map di-load dari DB (yang sudah termasuk data baru). Tapi fill() method terima 
+$manualReferences yang sama, dan di merge lagi (point 1 — di-skip karena sudah ada di DB). 
+Double processing tapi tidak bermasalah secara fungsional — hanya redundant.
