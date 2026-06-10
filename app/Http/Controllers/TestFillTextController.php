@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx as XlsxReader;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -41,12 +42,25 @@ class TestFillTextController extends Controller
                 'cost_center' => $row['cost_center'],
                 'current_text' => $row['text'],
                 'component_name' => $comp,
-                'default_label' => $comp ? 'Uang Titipan - ' . $comp : $row['text'],
+                'default_label' => $comp ? 'Uang Titipan - ' . $comp : '',
             ];
         }
 
         $request->session()->put('test_fill_matched', $matched);
         $request->session()->put('test_fill_target_orig_path', $targetPath);
+
+        return redirect()->route('test_fill_text.result', [
+            'account' => self::TARGET_ACCOUNT,
+        ]);
+    }
+
+    public function showResult(Request $request)
+    {
+        $matched = $request->session()->get('test_fill_matched');
+
+        if (!$matched) {
+            return redirect()->route('test_fill_text.form')->with('error', 'Silakan upload file terlebih dahulu.');
+        }
 
         return view('test_fill_text.result', [
             'account' => self::TARGET_ACCOUNT,
@@ -56,16 +70,20 @@ class TestFillTextController extends Controller
 
     public function apply(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'labels' => 'required|array',
-            'labels.*' => 'required|string|max:200',
+            'labels.*' => 'nullable|string|max:200',
         ]);
+
+        if ($validator->fails()) {
+            return redirect()->route('test_fill_text.form')->withErrors($validator)->withInput();
+        }
 
         $matched = $request->session()->get('test_fill_matched');
         $targetOrigPath = $request->session()->get('test_fill_target_orig_path');
 
         if (!$matched || !$targetOrigPath || !file_exists($targetOrigPath)) {
-            return back()->with('error', 'Session expired. Silakan upload ulang.');
+            return redirect()->route('test_fill_text.form')->with('error', 'Session expired. Silakan upload ulang.');
         }
 
         $labels = $request->input('labels');
@@ -82,7 +100,7 @@ class TestFillTextController extends Controller
             @unlink($tempPath);
             $spreadsheet->disconnectWorksheets();
             unset($spreadsheet);
-            return back()->with('error', 'Kolom "Text" tidak ditemukan di file target.');
+            return redirect()->route('test_fill_text.form')->with('error', 'Kolom "Text" tidak ditemukan di file target.');
         }
 
         foreach ($matched as $idx => $row) {
@@ -191,9 +209,7 @@ class TestFillTextController extends Controller
 
             $name = $compCol ? trim((string) $sheet->getCell($compCol . $row)->getValue()) : '';
             $name = trim($name, " -");
-            if ($name !== '') {
-                $names[] = $name;
-            }
+            $names[] = $name;
         }
 
         $spreadsheet->disconnectWorksheets();

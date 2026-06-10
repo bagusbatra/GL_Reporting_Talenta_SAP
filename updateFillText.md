@@ -1,12 +1,14 @@
 # Update Fill Text — Uang Titipan (Account 2010000005)
 
+**Versi: 2.0** — 10 Juni 2026
+
 ## Status: Eksperimental Page (Test/Uji Coba)
 
 ---
 
 ## 1. Latar Belakang
 
-Account **2010000005 (Uang Titipan)** memiliki 9 subtype berbeda (Denda Indisipliner, Potongan Denda, Potongan Lainnya, Potongan Denda Terlambat, Potongan Indisipliner, Potongan Lain-lain, Potongan Kelalaian, Potongan Koperasi, Potongan Denda Sakit) yang direpresentasikan sebagai 9 baris terpisah di file Excel GL.
+Account **2010000005 (Uang Titipan)** memiliki beberapa subtype (Denda Indisipliner, Potongan Denda, Potongan Lainnya, dll) yang direpresentasikan sebagai baris terpisah di file Excel GL. Jumlah subtype **tidak fixed** — sepenuhnya mengikuti data dari file **Ledger Mapping Export** per entity/profile.
 
 Kendala:
 - **Tidak boleh** mengubah Python service (extraction strategy)
@@ -21,10 +23,11 @@ Kendala:
 ### 2.1 Cara Kerja
 
 1. **Ledger Mapping Export** dari Talenta berisi mapping per GL Entry ke Component ID + Component Name
-2. Untuk account 2010000005, terdapat 9 entries dengan Component Name seperti "Denda Indisipliner", "Potongan Koperasi", dll
-3. **Target File** (Excel GL hasil generate) memiliki 10 baris 2010000005 (9 baris + 1 baris dengan amount nol)
-4. Pencocokan dilakukan secara **positional**: baris ke-1 target → entry ke-1 ledger, baris ke-2 target → entry ke-2, dst
-5. Output text: `"Uang Titipan - {Component Name}"`
+2. Untuk account 2010000005, entries dengan Component Name diambil **dinamis** dari file (jumlah bervariasi per entity)
+3. **Target File** (Excel GL hasil generate) memiliki N baris 2010000005
+4. Pencocokan dilakukan secara **positional**: baris ke-N target → entry ke-N ledger
+5. Jika komponen ledger kosong → label output juga **kosong** (tidak pakai fallback text lama)
+6. Output text: `"Uang Titipan - {Component Name}"` (jika komponen terisi)
 
 ### 2.2 Kenapa Positional Bekerja
 
@@ -34,15 +37,16 @@ Strategy extraction (A dan B) membangun entries dengan iterasi `for m in mapping
 
 ## 3. Komponen Implementasi
 
-### 3.1 TestFillTextController (BARU)
+### 3.1 TestFillTextController (BARU — 258 baris)
 
 `app/Http/Controllers/TestFillTextController.php`
 
 | Method | Route | Description |
 |--------|-------|-------------|
 | `showForm()` | `GET /test-fill-text` | Form upload 2 file |
-| `process()` | `POST /test-fill-text/process` | Parse Ledger Mapping → extract component names per account; Parse Target → filter rows per account; Match by position → show preview |
-| `apply()` | `POST /test-fill-text/apply` | Tulis label ke Excel → download hasil |
+| `process()` | `POST /test-fill-text/process` | Parse Ledger Mapping → extract component names; Parse Target → filter rows; Match by position → store session → **redirect** ke result |
+| `showResult()` | `GET /test-fill-text/result` | Baca session → tampilkan preview table |
+| `apply()` | `POST /test-fill-text/apply` | Validasi labels → tulis ke Excel → download hasil |
 
 ### 3.2 Views (BARU)
 
@@ -53,15 +57,20 @@ Strategy extraction (A dan B) membangun entries dengan iterasi `for m in mapping
 
 ### 3.3 Routes (DIUBAH)
 
-`routes/web.php` — tambah import `TestFillTextController` + 3 route entries:
+`routes/web.php` — tambah import `TestFillTextController` + 4 route entries:
 
 ```php
 Route::prefix('test-fill-text')->name('test_fill_text.')->group(function () {
     Route::get('/', [TestFillTextController::class, 'showForm'])->name('form');
+    Route::get('/result', [TestFillTextController::class, 'showResult'])->name('result');
     Route::post('/process', [TestFillTextController::class, 'process'])->name('process');
     Route::post('/apply', [TestFillTextController::class, 'apply'])->name('apply');
 });
 ```
+
+**Perubahan dari v1:**
+- Tambah `GET /result` — menampilkan hasil mapping di URL yang bisa di-GET (solve download issue)
+- `process()` tidak return view langsung, tapi **redirect** ke `/result` setelah simpan session
 
 ### 3.4 File Test Data (BARU, tidak di-commit)
 
@@ -88,7 +97,8 @@ getComponentNamesForAccount('2010000005'):
   - Parse ledger file (XlsxReader, readDataOnly=true)
   - Filter rows where GL Entry = 2010000005
   - Extract Component text, bersihkan leading dash
-  → ['Denda Indisipliner', 'Potongan Denda', 'Potongan Lainnya', ...]
+  - PRESERVE empty entries (tidak di-skip, urutan terjaga)
+  → ['Denda Indisipliner', 'Potongan Denda', '', 'Potongan Lainnya', ...]
         │
         ▼
 getTargetRowsForAccount('2010000005'):
@@ -98,28 +108,30 @@ getTargetRowsForAccount('2010000005'):
         │
         ▼
 Match by position:
-  Row128 → component[0] = 'Denda Indisipliner'       → 'Uang Titipan - Denda Indisipliner'
-  Row129 → component[1] = 'Potongan Denda'            → 'Uang Titipan - Potongan Denda'
-  Row130 → component[2] = 'Potongan Lainnya'          → 'Uang Titipan - Potongan Lainnya'
-  Row131 → component[3] = 'Potongan Denda Terlambat'  → 'Uang Titipan - Potongan Denda Terlambat'
-  Row132 → component[4] = 'Potongan Indisipliner'     → 'Uang Titipan - Potongan Indisipliner'
-  Row133 → component[5] = 'Potongan Lain-lain'        → 'Uang Titipan - Potongan Lain-lain'
-  Row134 → component[6] = 'Potongan Kelalaian'        → 'Uang Titipan - Potongan Kelalaian'
-  Row135 → component[7] = 'Potongan Koperasi'         → 'Uang Titipan - Potongan Koperasi'
-  Row136 → component[8] = 'Potongan Denda Sakit'      → 'Uang Titipan - Potongan Denda Sakit'
-  Row157 → component[9] = (none)                      → (manual edit)
+  Row128 → component[0] = 'Denda Indisipliner'  → 'Uang Titipan - Denda Indisipliner'
+  Row129 → component[1] = 'Potongan Denda'      → 'Uang Titipan - Potongan Denda'
+  Row130 → component[2] = ''                     → '' (kosong, text ikut dikosongkan)
+  ...
         │
         ▼
 Session: store matched + target path
         │
         ▼
-View: tabel preview (9 rows matched + 1 unmatched, editable text inputs)
+Redirect ke GET /test-fill-text/result
+        │
+        ▼
+View: tabel preview di URL GET (bisa di-refresh, back() aman)
 ```
 
 ### 4.2 Apply & Download
 
 ```
 User edits labels (optional) → klik "Apply & Download"
+  (form action: POST /test-fill-text/apply, origin: GET /test-fill-text/result)
+        │
+        ▼
+Validasi labels[]: nullable|string|max:200
+  (allow empty string untuk row tanpa komponen)
         │
         ▼
 Copy target file → temp
@@ -129,7 +141,16 @@ For each matched row:
   sheet->setCellValue(TextCol . excelRow, label)
         │
         ▼
-Save & download → "Test_Filled_Upload_GL_STAFF_KMI_2026_05.xlsx"
+Session: clear matched + target path
+        │
+        ▼
+Download → "Test_Filled_Upload_GL_STAFF_KMI_2026_05.xlsx"
+
+Error handling:
+  - Session expired → redirect ke GET /test-fill-text/form (bukan back())
+  - Validasi gagal → redirect ke GET /test-fill-text/form
+  - Kolom Text tidak ditemukan → redirect ke GET /test-fill-text/form
+  (Semua error redirect ke GET route, hindari MethodNotAllowedHttpException)
 ```
 
 ---
@@ -148,7 +169,13 @@ Save & download → "Test_Filled_Upload_GL_STAFF_KMI_2026_05.xlsx"
 - Fallback ke partial match (`str_contains(key, searchLower)`)
 - Contoh: "Components (Cannot be Imported)" cocok dengan search "components"
 
-### 5.2 PhpSpreadsheet Workarounds
+### 5.2 Handling Empty Component Names
+
+- Entry ledger dengan component name kosong **tidak di-skip** — tetap dimasukkan ke array `$names` sebagai string kosong
+- Ini penting agar urutan positional antara ledger entries dan target rows tetap sinkron
+- Saat component name kosong, `default_label` di-set ke `''` (bukan fallback `$row['text']`)
+
+### 5.3 PhpSpreadsheet Workarounds
 
 - File target menghasilkan `Undefined array key 141` warning internal → gunakan `@` supresi
 - Gunakan `setReadDataOnly(true)` untuk skip shared string processing
@@ -161,10 +188,10 @@ Save & download → "Test_Filled_Upload_GL_STAFF_KMI_2026_05.xlsx"
 
 | File | Status | Keterangan |
 |------|--------|------------|
-| `app/Http/Controllers/TestFillTextController.php` | **BARU** | 240 baris, 4 public + 6 private methods |
+| `app/Http/Controllers/TestFillTextController.php` | **BARU** | 258 baris, 5 public + 6 private methods |
 | `resources/views/test_fill_text/form.blade.php` | **BARU** | Form upload dengan 2 file input |
 | `resources/views/test_fill_text/result.blade.php` | **BARU** | Preview + edit + download |
-| `routes/web.php` | **DIUBAH** | +1 import, +3 route entries |
+| `routes/web.php` | **DIUBAH** | +1 import, +4 route entries (v1: 3, v2: +1 GET /result) |
 | `updateFillText.md` | **DIUBAH** | Dokumentasi ini |
 
 **Tidak ada perubahan pada:** Python service, model, migration, seeder, FillTextService.php, FillTextController.php yang sudah ada.
@@ -195,19 +222,33 @@ Target rows 2010000005 (10):
   Row 134 → 'Uang Titipan - Potongan Kelalaian'
   Row 135 → 'Uang Titipan - Potongan Koperasi'
   Row 136 → 'Uang Titipan - Potongan Denda Sakit'
-  Row 157 → (unmatched, needs manual edit)
+  Row 157 → '' (kosong — tidak ada komponen ledger, label dikosongkan)
 ```
 
 ---
 
-## 8. Rencana Selanjutnya
+## 8. Changelog
 
-### 8.1 Jangka Pendek
+### v2.0 (10 Juni 2026)
+
+| Perubahan | Detail |
+|-----------|--------|
+| **Empty component names** | `getComponentNamesForAccount()` sekarang preserve entry kosong — tidak di-skip, urutan positional terjaga |
+| **Empty label output** | `default_label` jadi `''` saat component name kosong (bukan fallback `$row['text']`) |
+| **Redirect after process** | `process()` redirect ke `GET /test-fill-text/result` (bukan return view langsung) — solve download issue |
+| **New GET route** | `GET /test-fill-text/result` — `showResult()` baca session, tampilkan result view di URL GET |
+| **Manual validation** | `apply()` pakai `Validator::make()` + `redirect()->route('test_fill_text.form')` (bukan `back()`) — solve MethodNotAllowedHttpException |
+| **Nullable labels** | Validasi `labels.*` jadi `nullable\|string\|max:200` — allow empty string untuk row tanpa komponen |
+| **Jumlah subtype dinamis** | Tidak hardcode 9, mengikuti data di file Ledger Mapping Export per entity |
+
+### Rencana Selanjutnya
+
+#### Jangka Pendek
 - Uji coba dengan berbagai file Ledger Mapping (entity/profile berbeda)
 - Verifikasi akurasi positional matching untuk berbagai strategy extraction (A, B, C, D, E, F)
 - Handle edge case: jumlah target rows ≠ jumlah ledger entries
 
-### 8.2 Jangka Panjang (jika test page disetujui jadi fitur permanen)
+#### Jangka Panjang (jika test page disetujui jadi fitur permanen)
 - Integrasi ke Flow Fill Text yang sudah ada (FillTextService + FillTextController)
 - Buat migration + model `gl_subtype_labels` untuk persistent storage
 - Seeder data untuk semua account yang perlu subtype labeling

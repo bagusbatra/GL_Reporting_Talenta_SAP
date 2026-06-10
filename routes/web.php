@@ -77,6 +77,7 @@ Route::prefix('reset-center')->name('reset_center.')->group(function () {
 // Test Fill Text (experimental page)
 Route::prefix('test-fill-text')->name('test_fill_text.')->group(function () {
     Route::get('/', [TestFillTextController::class, 'showForm'])->name('form');
+    Route::get('/result', [TestFillTextController::class, 'showResult'])->name('result');
     Route::post('/process', [TestFillTextController::class, 'process'])->name('process');
     Route::post('/apply', [TestFillTextController::class, 'apply'])->name('apply');
 });
