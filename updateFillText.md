@@ -169,13 +169,31 @@ Error handling:
 - Fallback ke partial match (`str_contains(key, searchLower)`)
 - Contoh: "Components (Cannot be Imported)" cocok dengan search "components"
 
-### 5.2 Handling Empty Component Names
+### 5.2 Label Mapping (LABEL_MAP)
+
+Output label tidak menggunakan format generic. Setiap component name memiliki mapping spesifik:
+
+| Component Name | Output Label |
+|----------------|-------------|
+| Potongan Koperasi | Uang Titipan Koperasi |
+| Potongan Kelalaian | Uang Titipan Jaminan Kelalaian |
+| Potongan Denda Sakit | Uang Titipan Refund |
+| Potongan Denda Terlambat | Uang Titipan Refund |
+| Potongan Denda | Uang Titipan Denda |
+| Potongan Denda Indisipliner | Uang Titipan Denda |
+| Denda Indisipliner | Uang Titipan Denda |
+| Potongan Lain-lain | Uang Titipan Talenta |
+| Potongan Lainnya | Uang Titipan Lelang |
+
+Jika component name tidak ada di mapping → fallback ke format **`"Uang Titipan - {Component Name}"`**.
+
+### 5.3 Handling Empty Component Names
 
 - Entry ledger dengan component name kosong **tidak di-skip** — tetap dimasukkan ke array `$names` sebagai string kosong
 - Ini penting agar urutan positional antara ledger entries dan target rows tetap sinkron
 - Saat component name kosong, `default_label` di-set ke `''` (bukan fallback `$row['text']`)
 
-### 5.3 PhpSpreadsheet Workarounds
+### 5.4 PhpSpreadsheet Workarounds
 
 - File target menghasilkan `Undefined array key 141` warning internal → gunakan `@` supresi
 - Gunakan `setReadDataOnly(true)` untuk skip shared string processing
@@ -213,16 +231,16 @@ Ledger entries 2010000005 (9):
   [8] Potongan Denda Sakit
 
 Target rows 2010000005 (10):
-  Row 128 → 'Uang Titipan - Denda Indisipliner'
-  Row 129 → 'Uang Titipan - Potongan Denda'
-  Row 130 → 'Uang Titipan - Potongan Lainnya'
-  Row 131 → 'Uang Titipan - Potongan Denda Terlambat'
-  Row 132 → 'Uang Titipan - Potongan Indisipliner'
-  Row 133 → 'Uang Titipan - Potongan Lain-lain'
-  Row 134 → 'Uang Titipan - Potongan Kelalaian'
-  Row 135 → 'Uang Titipan - Potongan Koperasi'
-  Row 136 → 'Uang Titipan - Potongan Denda Sakit'
-  Row 157 → '' (kosong — tidak ada komponen ledger, label dikosongkan)
+  Row 128 → 'Uang Titipan Denda'             (Denda Indisipliner)
+  Row 129 → 'Uang Titipan Denda'             (Potongan Denda)
+  Row 130 → 'Uang Titipan Lelang'            (Potongan Lainnya)
+  Row 131 → 'Uang Titipan Refund'            (Potongan Denda Terlambat)
+  Row 132 → 'Uang Titipan - Potongan Indisipliner'  (Potongan Indisipliner — fallback generic)
+  Row 133 → 'Uang Titipan Talenta'           (Potongan Lain-lain)
+  Row 134 → 'Uang Titipan Jaminan Kelalaian' (Potongan Kelalaian)
+  Row 135 → 'Uang Titipan Koperasi'          (Potongan Koperasi)
+  Row 136 → 'Uang Titipan Refund'            (Potongan Denda Sakit)
+  Row 157 → ''                                (kosong — tidak ada komponen ledger)
 ```
 
 ---
@@ -240,6 +258,8 @@ Target rows 2010000005 (10):
 | **Manual validation** | `apply()` pakai `Validator::make()` + `redirect()->route('test_fill_text.form')` (bukan `back()`) — solve MethodNotAllowedHttpException |
 | **Nullable labels** | Validasi `labels.*` jadi `nullable\|string\|max:200` — allow empty string untuk row tanpa komponen |
 | **Jumlah subtype dinamis** | Tidak hardcode 9, mengikuti data di file Ledger Mapping Export per entity |
+| **LABEL_MAP** | Mapping manual component name → output label spesifik (bukan format generic `"Uang Titipan - ..."`) |
+| **Fix Kelalaian** | Potongan Kelalaian → `Uang Titipan Jaminan Kelalaian` (dengan prefix "Uang Titipan") |
 
 ### Rencana Selanjutnya
 

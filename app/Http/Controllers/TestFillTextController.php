@@ -14,6 +14,19 @@ class TestFillTextController extends Controller
 {
     private const TARGET_ACCOUNT = '2010000005';
 
+    private const LABEL_MAP = [
+        'Potongan Koperasi' => 'Uang Titipan Koperasi',
+        'Potongan Kelalaian' => 'Uang Titipan Jaminan Kelalaian',
+        'Potongan Denda Sakit' => 'Uang Titipan Refund',
+        'Potongan Denda Terlambat' => 'Uang Titipan Refund',
+        'Potongan Denda' => 'Uang Titipan Denda',
+        'Potongan Indisipliner' => 'Uang Titipan Denda',
+        'Potongan Denda Indisipliner' => 'Uang Titipan Denda',
+        'Denda Indisipliner' => 'Uang Titipan Denda',
+        'Potongan Lain-lain' => 'Uang Titipan Talenta',
+        'Potongan Lainnya' => 'Uang Titipan Lelang',
+    ];
+
     public function showForm()
     {
         return view('test_fill_text.form');
@@ -42,7 +55,7 @@ class TestFillTextController extends Controller
                 'cost_center' => $row['cost_center'],
                 'current_text' => $row['text'],
                 'component_name' => $comp,
-                'default_label' => $comp ? 'Uang Titipan - ' . $comp : '',
+                'default_label' => $comp ? (self::LABEL_MAP[$comp] ?? 'Uang Titipan - ' . $comp) : '',
             ];
         }
 
