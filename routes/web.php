@@ -3,6 +3,7 @@
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FillTextController;
 use App\Http\Controllers\HelpController;
+use App\Http\Controllers\TestFillTextController;
 use App\Http\Controllers\MappingController;
 use App\Http\Controllers\ResetCenterController;
 use App\Http\Controllers\RunController;
@@ -71,6 +72,13 @@ Route::prefix('reset-center')->name('reset_center.')->group(function () {
     Route::post('/logout', [ResetCenterController::class, 'logout'])->name('logout');
     Route::post('/reset/{section}', [ResetCenterController::class, 'resetSection'])->name('reset_section');
     Route::post('/reset-all', [ResetCenterController::class, 'resetAll'])->name('reset_all');
+});
+
+// Test Fill Text (experimental page)
+Route::prefix('test-fill-text')->name('test_fill_text.')->group(function () {
+    Route::get('/', [TestFillTextController::class, 'showForm'])->name('form');
+    Route::post('/process', [TestFillTextController::class, 'process'])->name('process');
+    Route::post('/apply', [TestFillTextController::class, 'apply'])->name('apply');
 });
 
 // Help & Documentation
