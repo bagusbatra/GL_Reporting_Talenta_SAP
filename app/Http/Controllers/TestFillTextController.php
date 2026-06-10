@@ -29,7 +29,7 @@ class TestFillTextController extends Controller
 
     public function showForm()
     {
-        return view('test_fill_text.form');
+        return view('fill_text.subtype_form');
     }
 
     public function process(Request $request)
@@ -62,7 +62,7 @@ class TestFillTextController extends Controller
         $request->session()->put('test_fill_matched', $matched);
         $request->session()->put('test_fill_target_orig_path', $targetPath);
 
-        return redirect()->route('test_fill_text.result', [
+        return redirect()->route('fill_text.subtype.result', [
             'account' => self::TARGET_ACCOUNT,
         ]);
     }
@@ -72,10 +72,10 @@ class TestFillTextController extends Controller
         $matched = $request->session()->get('test_fill_matched');
 
         if (!$matched) {
-            return redirect()->route('test_fill_text.form')->with('error', 'Silakan upload file terlebih dahulu.');
+            return redirect()->route('fill_text.subtype.form')->with('error', 'Silakan upload file terlebih dahulu.');
         }
 
-        return view('test_fill_text.result', [
+        return view('fill_text.subtype_result', [
             'account' => self::TARGET_ACCOUNT,
             'matched' => $matched,
         ]);
@@ -89,14 +89,14 @@ class TestFillTextController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return redirect()->route('test_fill_text.form')->withErrors($validator)->withInput();
+            return redirect()->route('fill_text.subtype.form')->withErrors($validator)->withInput();
         }
 
         $matched = $request->session()->get('test_fill_matched');
         $targetOrigPath = $request->session()->get('test_fill_target_orig_path');
 
         if (!$matched || !$targetOrigPath || !file_exists($targetOrigPath)) {
-            return redirect()->route('test_fill_text.form')->with('error', 'Session expired. Silakan upload ulang.');
+            return redirect()->route('fill_text.subtype.form')->with('error', 'Session expired. Silakan upload ulang.');
         }
 
         $labels = $request->input('labels');
@@ -113,7 +113,7 @@ class TestFillTextController extends Controller
             @unlink($tempPath);
             $spreadsheet->disconnectWorksheets();
             unset($spreadsheet);
-            return redirect()->route('test_fill_text.form')->with('error', 'Kolom "Text" tidak ditemukan di file target.');
+            return redirect()->route('fill_text.subtype.form')->with('error', 'Kolom "Text" tidak ditemukan di file target.');
         }
 
         foreach ($matched as $idx => $row) {

@@ -74,8 +74,8 @@ Route::prefix('reset-center')->name('reset_center.')->group(function () {
     Route::post('/reset-all', [ResetCenterController::class, 'resetAll'])->name('reset_all');
 });
 
-// Test Fill Text (experimental page)
-Route::prefix('test-fill-text')->name('test_fill_text.')->group(function () {
+// Subtype Fill Text (account 2010000005)
+Route::prefix('fill-text/subtype')->name('fill_text.subtype.')->group(function () {
     Route::get('/', [TestFillTextController::class, 'showForm'])->name('form');
     Route::get('/result', [TestFillTextController::class, 'showResult'])->name('result');
     Route::post('/process', [TestFillTextController::class, 'process'])->name('process');

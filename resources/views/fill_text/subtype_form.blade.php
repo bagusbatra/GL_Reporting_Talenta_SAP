@@ -1,17 +1,17 @@
 @extends('layouts.app')
 
-@section('title', 'Uji Coba Fill Text')
+@section('title', 'Subtype Fill Text')
 
 @section('content')
 
 <div class="max-w-3xl mx-auto">
 
     <div class="mb-6">
-        <h1 class="text-2xl font-bold text-slate-900">Uji Coba Fill Text</h1>
-        <p class="text-sm text-slate-500 mt-1">Upload <strong>Ledger Mapping Export</strong> + <strong>Target File (Excel GL)</strong> untuk melihat hasil mapping subtype dan download.</p>
+        <h1 class="text-2xl font-bold text-slate-900">Subtype Fill Text</h1>
+        <p class="text-sm text-slate-500 mt-1">Upload <strong>Ledger Mapping Export</strong> + <strong>Target File (Excel GL)</strong> untuk melihat hasil mapping subtype Account 2010000005 (Uang Titipan) dan download.</p>
     </div>
 
-    <form action="{{ route('test_fill_text.process') }}" method="POST" enctype="multipart/form-data" class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+    <form action="{{ route('fill_text.subtype.process') }}" method="POST" enctype="multipart/form-data" class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
         @csrf
 
         <div class="mb-6">

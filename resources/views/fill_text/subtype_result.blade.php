@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Hasil Mapping Fill Text')
+@section('title', 'Hasil Mapping Subtype Fill Text')
 
 @section('content')
 
 <div class="max-w-6xl mx-auto">
 
     <div class="mb-6">
-        <a href="{{ route('test_fill_text.form') }}" class="text-sm text-slate-500 hover:text-slate-900">&larr; Upload Ulang</a>
+        <a href="{{ route('fill_text.subtype.form') }}" class="text-sm text-slate-500 hover:text-slate-900">&larr; Upload Ulang</a>
         <h1 class="text-2xl font-bold text-slate-900 mt-2">Hasil Mapping</h1>
         <p class="text-sm text-slate-500 mt-1">Position-based matching Account <code class="font-mono bg-slate-100 px-1 rounded">{{ $account }}</code> &mdash; {{ count($matched) }} row ditemukan di target.</p>
     </div>
@@ -31,7 +31,7 @@
         </div>
     </div>
 
-    <form action="{{ route('test_fill_text.apply') }}" method="POST" class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden mb-6">
+    <form action="{{ route('fill_text.subtype.apply') }}" method="POST" class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden mb-6">
         @csrf
 
         <div class="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
@@ -85,7 +85,7 @@
         </div>
 
         <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-            <a href="{{ route('test_fill_text.form') }}" class="text-sm text-slate-600 hover:text-slate-900">&larr; Upload Ulang</a>
+            <a href="{{ route('fill_text.subtype.form') }}" class="text-sm text-slate-600 hover:text-slate-900">&larr; Upload Ulang</a>
             <div class="space-x-2">
                 <button type="button" onclick="resetLabels()" class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition font-medium text-sm">
                     Reset ke Default

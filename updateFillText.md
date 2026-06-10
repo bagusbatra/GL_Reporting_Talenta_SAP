@@ -1,8 +1,8 @@
 # Update Fill Text — Uang Titipan (Account 2010000005)
 
-**Versi: 2.0** — 10 Juni 2026
+**Versi: 3.0** — 10 Juni 2026
 
-## Status: Eksperimental Page (Test/Uji Coba)
+## Status: ✅ Approved — Terintegrasi ke Navbar
 
 ---
 
@@ -37,30 +37,30 @@ Strategy extraction (A dan B) membangun entries dengan iterasi `for m in mapping
 
 ## 3. Komponen Implementasi
 
-### 3.1 TestFillTextController (BARU — 258 baris)
+### 3.1 TestFillTextController (BARU — 273 baris)
 
 `app/Http/Controllers/TestFillTextController.php`
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| `showForm()` | `GET /test-fill-text` | Form upload 2 file |
-| `process()` | `POST /test-fill-text/process` | Parse Ledger Mapping → extract component names; Parse Target → filter rows; Match by position → store session → **redirect** ke result |
-| `showResult()` | `GET /test-fill-text/result` | Baca session → tampilkan preview table |
-| `apply()` | `POST /test-fill-text/apply` | Validasi labels → tulis ke Excel → download hasil |
+| `showForm()` | `GET /fill-text/subtype` | Form upload 2 file |
+| `process()` | `POST /fill-text/subtype/process` | Parse Ledger Mapping → extract component names; Parse Target → filter rows; Match by position → store session → **redirect** ke result |
+| `showResult()` | `GET /fill-text/subtype/result` | Baca session → tampilkan preview table |
+| `apply()` | `POST /fill-text/subtype/apply` | Validasi labels → tulis ke Excel → download hasil |
 
-### 3.2 Views (BARU)
+### 3.2 Views (BARU — dipindahkan ke `fill_text/`)
 
 | View | Description |
 |------|-------------|
-| `resources/views/test_fill_text/form.blade.php` | Upload form (Ledger Mapping Export + Target File) |
-| `resources/views/test_fill_text/result.blade.php` | Preview table + editable labels + download button |
+| `resources/views/fill_text/subtype_form.blade.php` | Upload form (Ledger Mapping Export + Target File) |
+| `resources/views/fill_text/subtype_result.blade.php` | Preview table + editable labels + download button |
 
-### 3.3 Routes (DIUBAH)
+### 3.3 Routes — prefix `fill-text/subtype`
 
-`routes/web.php` — tambah import `TestFillTextController` + 4 route entries:
+`routes/web.php`:
 
 ```php
-Route::prefix('test-fill-text')->name('test_fill_text.')->group(function () {
+Route::prefix('fill-text/subtype')->name('fill_text.subtype.')->group(function () {
     Route::get('/', [TestFillTextController::class, 'showForm'])->name('form');
     Route::get('/result', [TestFillTextController::class, 'showResult'])->name('result');
     Route::post('/process', [TestFillTextController::class, 'process'])->name('process');
@@ -68,9 +68,13 @@ Route::prefix('test-fill-text')->name('test_fill_text.')->group(function () {
 });
 ```
 
-**Perubahan dari v1:**
-- Tambah `GET /result` — menampilkan hasil mapping di URL yang bisa di-GET (solve download issue)
-- `process()` tidak return view langsung, tapi **redirect** ke `/result` setelah simpan session
+### 3.4 Navbar (DIUBAAH)
+
+`resources/views/layouts/app.blade.php` — tambah link `Subtype Fill`:
+
+```blade
+<a href="{{ route('fill_text.subtype.form') }}" ...>Subtype Fill</a>
+```
 
 ### 3.4 File Test Data (BARU, tidak di-commit)
 
@@ -260,6 +264,10 @@ Target rows 2010000005 (10):
 | **Jumlah subtype dinamis** | Tidak hardcode 9, mengikuti data di file Ledger Mapping Export per entity |
 | **LABEL_MAP** | Mapping manual component name → output label spesifik (bukan format generic `"Uang Titipan - ..."`) |
 | **Fix Kelalaian** | Potongan Kelalaian → `Uang Titipan Jaminan Kelalaian` (dengan prefix "Uang Titipan") |
+| **Dipindahkan ke fill-text/subtype** | Route dari `/test-fill-text` → `/fill-text/subtype` |
+| **Views pindah** | Dari `test_fill_text/` → `fill_text/subtype_*.blade.php` |
+| **Navbar** | Tombol `Subtype Fill` ditambahkan di navbar |
+| **Disetujui** | Status berubah dari Experimental → Approved |
 
 ### Rencana Selanjutnya
 
