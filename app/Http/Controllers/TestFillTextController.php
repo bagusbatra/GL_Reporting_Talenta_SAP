@@ -46,6 +46,16 @@ class TestFillTextController extends Controller
 
         $targetRows = $this->getTargetRowsForAccount($targetPath, self::TARGET_ACCOUNT);
 
+        if (count($componentNames) !== count($targetRows)) {
+            $warning = sprintf(
+                'Perbedaan jumlah: %d entry ledger vs %d target rows untuk account %s. Positional matching mungkin tidak akurat.',
+                count($componentNames),
+                count($targetRows),
+                self::TARGET_ACCOUNT
+            );
+            $request->session()->flash('subtype_warning', $warning);
+        }
+
         $matched = [];
         foreach ($targetRows as $i => $row) {
             $comp = $componentNames[$i] ?? '';

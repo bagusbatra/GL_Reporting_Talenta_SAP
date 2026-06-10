@@ -10,6 +10,12 @@
         <a href="{{ route('fill_text.subtype.form') }}" class="text-sm text-slate-500 hover:text-slate-900">&larr; Upload Ulang</a>
         <h1 class="text-2xl font-bold text-slate-900 mt-2">Hasil Mapping</h1>
         <p class="text-sm text-slate-500 mt-1">Position-based matching Account <code class="font-mono bg-slate-100 px-1 rounded">{{ $account }}</code> &mdash; {{ count($matched) }} row ditemukan di target.</p>
+
+        @if(session('subtype_warning'))
+            <div class="mt-3 bg-amber-50 border-l-4 border-amber-500 text-amber-800 p-3 rounded text-sm">
+                <strong>⚠️ Warning:</strong> {{ session('subtype_warning') }}
+            </div>
+        @endif
     </div>
 
     @php
