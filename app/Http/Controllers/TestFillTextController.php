@@ -42,14 +42,16 @@ class TestFillTextController extends Controller
         $ledgerPath = $this->storeUpload($request->file('ledger_file'), 'ledger');
         $targetPath = $this->storeUpload($request->file('target_file'), 'target');
 
-        $componentNames = $this->getComponentNamesForAccount($ledgerPath, self::TARGET_ACCOUNT);
+        $ledgerRows = $this->getLedgerRowsForAccount($ledgerPath, self::TARGET_ACCOUNT);
 
         $targetRows = $this->getTargetRowsForAccount($targetPath, self::TARGET_ACCOUNT);
 
-        if (count($componentNames) !== count($targetRows)) {
+        $componentNames = array_column($ledgerRows, 'component_name');
+
+        if (count($ledgerRows) !== count($targetRows)) {
             $warning = sprintf(
                 'Perbedaan jumlah: %d entry ledger vs %d target rows untuk account %s. Positional matching mungkin tidak akurat.',
-                count($componentNames),
+                count($ledgerRows),
                 count($targetRows),
                 self::TARGET_ACCOUNT
             );
@@ -69,6 +71,7 @@ class TestFillTextController extends Controller
             ];
         }
 
+        $request->session()->put('test_fill_ledger_rows', $ledgerRows);
         $request->session()->put('test_fill_matched', $matched);
         $request->session()->put('test_fill_target_orig_path', $targetPath);
 
@@ -80,6 +83,7 @@ class TestFillTextController extends Controller
     public function showResult(Request $request)
     {
         $matched = $request->session()->get('test_fill_matched');
+        $ledgerRows = $request->session()->get('test_fill_ledger_rows', []);
 
         if (!$matched) {
             return redirect()->route('fill_text.subtype.form')->with('error', 'Silakan upload file terlebih dahulu.');
@@ -88,6 +92,7 @@ class TestFillTextController extends Controller
         return view('fill_text.subtype_result', [
             'account' => self::TARGET_ACCOUNT,
             'matched' => $matched,
+            'ledgerRows' => $ledgerRows,
         ]);
     }
 
@@ -212,6 +217,41 @@ class TestFillTextController extends Controller
             }
         }
         return null;
+    }
+
+    private function getLedgerRowsForAccount(string $path, string $account): array
+    {
+        $spreadsheet = $this->loadSpreadsheet($path);
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $header = $this->readHeaderMap($sheet);
+
+        $glEntryCol = $this->findHeader($header, 'gl entry');
+        $descCol = $this->findHeader($header, 'description');
+        $compIdCol = $this->findHeader($header, 'component id');
+        $compCol = $this->findHeader($header, 'components');
+
+        $rows = [];
+        $highestRow = $sheet->getHighestDataRow();
+        for ($row = 2; $row <= $highestRow; $row++) {
+            $entry = $glEntryCol ? trim((string) $sheet->getCell($glEntryCol . $row)->getValue()) : '';
+            if (preg_replace('/\.0$/', '', $entry) !== $account) continue;
+
+            $name = $compCol ? trim((string) $sheet->getCell($compCol . $row)->getValue()) : '';
+            $name = trim($name, " -");
+
+            $rows[] = [
+                'gl_entry' => $entry,
+                'description' => $descCol ? trim((string) $sheet->getCell($descCol . $row)->getValue()) : '',
+                'component_id' => $compIdCol ? trim((string) $sheet->getCell($compIdCol . $row)->getValue()) : '',
+                'component_name' => $name,
+            ];
+        }
+
+        $spreadsheet->disconnectWorksheets();
+        unset($spreadsheet);
+
+        return $rows;
     }
 
     private function getComponentNamesForAccount(string $path, string $account): array

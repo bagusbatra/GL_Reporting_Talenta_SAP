@@ -14,9 +14,11 @@ Sistem otomasi ekstraksi data **General Ledger (GL)** dari **Talenta (Mekari) AP
 - [Halaman & Fungsionalitas Web](#halaman--fungsionalitas-web)
 - [Services (Laravel)](#services-laravel)
 - [Models (Eloquent ORM)](#models-eloquent-orm)
+- [TestFillTextController](#testfilltextcontroller-baru)
 - [Cara Install & Run](#cara-install--run)
 - [API Endpoints (Python)](#api-endpoints-python)
 - [Format File Excel Output (20 Kolom SAP)](#format-file-excel-output-20-kolom-sap)
+- [Catatan Penting](#catatan-penting)
 
 ---
 
@@ -514,11 +516,34 @@ Value Date | Cost Center | Profit Center | Assignment | Text | Reason Code | Hou
 - **Show**: Lihat kondisi file filled terbaru
 - **Download**: Download file _FILLED.xlsx (no-cache headers)
 
-### 6. Text References (`/text-references`)
+### 6. Subtype Fill Text (`/fill-text/subtype`)
+
+Khusus untuk **Account 2010000005 (Uang Titipan)** yang memiliki beberapa subtype (Denda, Koperasi, Kelalaian, dll).
+
+Feature ini membutuhkan **2 file upload**:
+1. **Ledger Mapping Export** dari Talenta (berisi GL Entry → Component ID → Component Name)
+2. **Target File** (Excel GL hasil extraction, format 20 kolom SAP)
+
+Cara kerja **position-based matching**:
+- Parse ledger file → filter GL Entry = 2010000005 → ambil semua component names (preserve empty entries)
+- Parse target file → filter account 2010000005 → ambil rows sesuai urutan Excel
+- Cocokkan berdasarkan **posisi/index** (row ke-N target = component ke-N ledger)
+- Output label: mapping via `LABEL_MAP` (e.g. `"Denda Indisipliner"` → `"Uang Titipan Denda"`), fallback ke `"Uang Titipan - {Component}"`
+
+**Tampilan setelah proses:**
+- Stats cards (target rows, ledger matched, unmatched)
+- Tabel komparasi side-by-side (Ledger vs Target per posisi) dengan ✅ ⚠️ ➕ indikator + color coding
+- Tabel mapping rows dengan input editable labels + tombol "Apply & Download"
+
+**Controller**: `TestFillTextController` — 4 public methods: showForm, process, showResult, apply
+
+**Keterbatasan**: Karena `use_profit_center: true` di mapping 2010000005, cost center selalu kosong di Excel → positional matching adalah satu-satunya pendekatan yang viable.
+
+### 7. Text References (`/text-references`)
 - **Index**: List semua text reference (search/filter by account), pagination 30
 - **CRUD**: Tambah/edit/hapus reference
 
-### 7. Reset Center (`/reset-center`)
+### 8. Reset Center (`/reset-center`)
 - **PIN Gate**: Form input PIN untuk akses
 - **Reset Sections**:
   - Run Histories → truncate + hapus file gl_outputs
@@ -527,12 +552,22 @@ Value Date | Cost Center | Profit Center | Assignment | Text | Reason Code | Hou
   - Cost Centers → truncate + re-seed dari COSTCENTER_SAP.xlsx
 - **Reset All**: Semua section di-reset berurutan
 
-### 8. Help (`/help`)
+### 9. Help (`/help`)
 - Halaman dokumentasi statis
 
 ---
 
 ## Services (Laravel)
+
+### `TestFillTextController` (Baru)
+
+- `showForm()` → `GET /fill-text/subtype` — Form upload 2 file (Ledger Mapping + Target Excel)
+- `process()` → `POST /fill-text/subtype/process` — Parse kedua file, positional matching, store session, redirect ke result
+- `showResult()` → `GET /fill-text/subtype/result` — Tampilkan tabel komparasi + editable labels
+- `apply()` → `POST /fill-text/subtype/apply` — Validasi labels, tulis ke Excel, return download
+- `getLedgerRowsForAccount()` — Parse ledger file, filter GL Entry = 2010000005, return [GL Entry, Description, Component ID, Component Name]
+- `getTargetRowsForAccount()` — Parse target file, filter account = 2010000005, return [excel_row, amount, cost_center, text]
+- Menggunakan posisional matching karena cost center selalu kosong (use_profit_center: true)
 
 ### `PythonServiceClient`
 - `run(GlEntity, GlMappingProfile, year, month)` → call Python service, return result
@@ -761,8 +796,9 @@ Akses di `http://127.0.0.1:8000`
 ### Storage
 ```
 storage/app/
-├── gl_outputs/      → File Excel hasil extraction (*.xlsx)
-├── gl_filled/       → File Excel setelah Fill Text (*_FILLED.xlsx)
-├── gl_references/   → File referensi yang di-upload untuk Fill Text
-└── gl_uploads/      → Temporary upload (file asli Talenta untuk validasi, COSTCENTER_SAP.xlsx)
+├── gl_outputs/       → File Excel hasil extraction (*.xlsx)
+├── gl_filled/        → File Excel setelah Fill Text (*_FILLED.xlsx)
+├── gl_references/    → File referensi yang di-upload untuk Fill Text
+├── gl_uploads/       → Temporary upload (file asli Talenta untuk validasi, COSTCENTER_SAP.xlsx)
+└── test_fill_text/   → Upload sementara untuk Subtype Fill Text (ledger + target files)
 ```

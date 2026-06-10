@@ -1,6 +1,6 @@
 # Update Fill Text — Uang Titipan (Account 2010000005)
 
-**Versi: 3.0** — 10 Juni 2026
+**Versi: 3.1** — 10 Juni 2026
 
 ## Status: ✅ Approved — Terintegrasi ke Navbar
 
@@ -37,16 +37,20 @@ Strategy extraction (A dan B) membangun entries dengan iterasi `for m in mapping
 
 ## 3. Komponen Implementasi
 
-### 3.1 TestFillTextController (BARU — 273 baris)
+### 3.1 TestFillTextController (BARU — ~300 baris)
 
 `app/Http/Controllers/TestFillTextController.php`
 
 | Method | Route | Description |
 |--------|-------|-------------|
 | `showForm()` | `GET /fill-text/subtype` | Form upload 2 file |
-| `process()` | `POST /fill-text/subtype/process` | Parse Ledger Mapping → extract component names; Parse Target → filter rows; Match by position → store session → **redirect** ke result |
-| `showResult()` | `GET /fill-text/subtype/result` | Baca session → tampilkan preview table |
+| `process()` | `POST /fill-text/subtype/process` | Parse Ledger (via `getLedgerRowsForAccount`) + Target; store ke session; **redirect** ke result |
+| `showResult()` | `GET /fill-text/subtype/result` | Baca session → tampilkan tabel komparasi + preview |
 | `apply()` | `POST /fill-text/subtype/apply` | Validasi labels → tulis ke Excel → download hasil |
+| | **Private methods** | |
+| `getLedgerRowsForAccount()` | — | Parse ledger file, return [GL Entry, Description, Component ID, Component Name] per row |
+| `getComponentNamesForAccount()` | — | Parse ledger, return array of component names (untuk positional matching) |
+| `getTargetRowsForAccount()` | — | Parse target, filter by account, return [excel_row, amount, cost_center, text] |
 
 ### 3.2 Views (BARU — dipindahkan ke `fill_text/`)
 
@@ -97,12 +101,15 @@ User uploads:
 StoreUpload() → simpan ke storage/app/test_fill_text/
         │
         ▼
-getComponentNamesForAccount('2010000005'):
-  - Parse ledger file (XlsxReader, readDataOnly=true)
-  - Filter rows where GL Entry = 2010000005
-  - Extract Component text, bersihkan leading dash
-  - PRESERVE empty entries (tidak di-skip, urutan terjaga)
-  → ['Denda Indisipliner', 'Potongan Denda', '', 'Potongan Lainnya', ...]
+getLedgerRowsForAccount('2010000005'):
+  - Parse ledger, filter by GL Entry = 2010000005
+  - Return per row: [GL Entry, Description, Component ID, Component Name]
+  - PRESERVE empty component entries (urutan terjaga)
+  → [
+      {gl_entry, description, component_id, component_name: 'Denda Indisipliner'},
+      {gl_entry, description, component_id, component_name: 'Potongan Denda'},
+      ...
+    ]
         │
         ▼
 getTargetRowsForAccount('2010000005'):
@@ -111,20 +118,28 @@ getTargetRowsForAccount('2010000005'):
   → [Row128, Row129, ..., Row136, Row157]
         │
         ▼
+Compare count:
+  - Jika count(ledger) !== count(target) → flash warning ke session
+        │
+        ▼
 Match by position:
-  Row128 → component[0] = 'Denda Indisipliner'  → 'Uang Titipan - Denda Indisipliner'
-  Row129 → component[1] = 'Potongan Denda'      → 'Uang Titipan - Potongan Denda'
-  Row130 → component[2] = ''                     → '' (kosong, text ikut dikosongkan)
+  Row128 → component[0] = 'Denda Indisipliner' → 'Uang Titipan Denda' (via LABEL_MAP)
+  Row129 → component[1] = 'Potongan Denda'     → 'Uang Titipan Denda'
   ...
         │
         ▼
-Session: store matched + target path
+Session: store ledgerRows + matched + target path
         │
         ▼
-Redirect ke GET /test-fill-text/result
+Redirect ke GET /fill-text/subtype/result
         │
         ▼
-View: tabel preview di URL GET (bisa di-refresh, back() aman)
+View: 
+  1. Stats box (target rows, matched, unmatched)
+  2. ⭐ Tabel Komparasi (Ledger vs Target side-by-side per posisi)
+     - Indikator: ✅ cocok, ⚠️ mismatch, ➕ extra row
+     - Color coding: red/amber/orange background
+  3. Tabel Mapping Rows (editable labels + Apply & Download)
 ```
 
 ### 4.2 Apply & Download
@@ -210,10 +225,11 @@ Jika component name tidak ada di mapping → fallback ke format **`"Uang Titipan
 
 | File | Status | Keterangan |
 |------|--------|------------|
-| `app/Http/Controllers/TestFillTextController.php` | **BARU** | 258 baris, 5 public + 6 private methods |
-| `resources/views/test_fill_text/form.blade.php` | **BARU** | Form upload dengan 2 file input |
-| `resources/views/test_fill_text/result.blade.php` | **BARU** | Preview + edit + download |
-| `routes/web.php` | **DIUBAH** | +1 import, +4 route entries (v1: 3, v2: +1 GET /result) |
+| `app/Http/Controllers/TestFillTextController.php` | **BARU** | ~300 baris, 4 public + 4 private methods |
+| `resources/views/fill_text/subtype_form.blade.php` | **BARU** | Form upload (moved from `test_fill_text/form.blade.php`) |
+| `resources/views/fill_text/subtype_result.blade.php` | **BARU** | Tabel komparasi + mapping + download (moved from `test_fill_text/result.blade.php`) |
+| `routes/web.php` | **DIUBAH** | `test-fill-text/*` → `fill-text/subtype/*` |
+| `resources/views/layouts/app.blade.php` | **DIUBAH** | + navbar link `Subtype Fill` |
 | `updateFillText.md` | **DIUBAH** | Dokumentasi ini |
 
 **Tidak ada perubahan pada:** Python service, model, migration, seeder, FillTextService.php, FillTextController.php yang sudah ada.
@@ -268,6 +284,16 @@ Target rows 2010000005 (10):
 | **Views pindah** | Dari `test_fill_text/` → `fill_text/subtype_*.blade.php` |
 | **Navbar** | Tombol `Subtype Fill` ditambahkan di navbar |
 | **Disetujui** | Status berubah dari Experimental → Approved |
+
+### v3.1 (10 Juni 2026)
+
+| Perubahan | Detail |
+|-----------|--------|
+| **Tabel Komparasi** | Halaman result menampilkan side-by-side Ledger Mapping (GL Entry, Description, Component) vs Target File (Row, CC, Amount, Text) per posisi |
+| **Indikator kecocokan** | ✅ cocok, ⚠️ mismatch (ledger ada komponen, target tidak matching), ➕ extra row di salah satu file |
+| **Color coding** | Red/amber/orange background untuk baris yang bermasalah |
+| **getLedgerRowsForAccount()** | Method baru — return data ledger lengkap (GL Entry, Description, Component ID, Component Name) |
+| **Warning count mismatch** | Flash warning jika jumlah ledger entries ≠ target rows |
 
 ### Rencana Selanjutnya
 

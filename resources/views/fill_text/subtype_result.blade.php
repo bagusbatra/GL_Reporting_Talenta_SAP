@@ -37,6 +37,81 @@
         </div>
     </div>
 
+    @if(count($ledgerRows))
+    <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden mb-6">
+        <div class="px-5 py-3 border-b border-slate-200 bg-slate-50">
+            <h3 class="font-semibold text-slate-900">Komparasi Ledger Mapping vs Target File</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Perbandingan data per posisi — Ledger (kiri) vs Target Excel (kanan)</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-100 text-xs uppercase text-slate-500">
+                    <tr>
+                        <th class="px-3 py-2 text-left border-r border-slate-200" colspan="4">📄 Ledger Mapping</th>
+                        <th class="px-3 py-2 text-left border-r border-slate-200" colspan="2"></th>
+                        <th class="px-3 py-2 text-left" colspan="5">🎯 Target File (Excel GL)</th>
+                    </tr>
+                    <tr class="bg-slate-50">
+                        <th class="px-3 py-2 text-left border-r border-slate-200">#</th>
+                        <th class="px-3 py-2 text-left border-r border-slate-200">GL Entry</th>
+                        <th class="px-3 py-2 text-left border-r border-slate-200">Description</th>
+                        <th class="px-3 py-2 text-left border-r border-slate-200">Component</th>
+                        <th class="px-3 py-2 text-center border-r border-slate-200" colspan="2">↔</th>
+                        <th class="px-3 py-2 text-left border-r border-slate-200">Row</th>
+                        <th class="px-3 py-2 text-left border-r border-slate-200">CC</th>
+                        <th class="px-3 py-2 text-right border-r border-slate-200">Amount</th>
+                        <th class="px-3 py-2 text-left border-r border-slate-200">Text (Current)</th>
+                        <th class="px-3 py-2 text-left">Label Output</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @php $max = max(count($ledgerRows), count($matched)); @endphp
+                    @for ($i = 0; $i < $max; $i++)
+                        @php
+                            $lr = $ledgerRows[$i] ?? null;
+                            $mr = $matched[$i] ?? null;
+                            $mismatch = $lr && $mr && empty($mr['component_name']) && !empty($lr['component_name']);
+                            $extraTarget = !$lr && $mr;
+                            $extraLedger = $lr && !$mr;
+                        @endphp
+                        <tr class="{{ $mismatch ? 'bg-red-50/30' : ($extraTarget ? 'bg-amber-50/30' : ($extraLedger ? 'bg-orange-50/30' : '')) }}">
+                            <td class="px-3 py-2 font-mono text-xs text-slate-500 border-r border-slate-200">{{ $i + 1 }}</td>
+                            <td class="px-3 py-2 font-mono text-xs border-r border-slate-200">{{ $lr['gl_entry'] ?? '-' }}</td>
+                            <td class="px-3 py-2 text-xs border-r border-slate-200">{{ $lr['description'] ?? '-' }}</td>
+                            <td class="px-3 py-2 text-xs border-r border-slate-200">
+                                @if($lr && $lr['component_name'])
+                                    <span class="text-slate-700">{{ $lr['component_name'] }}</span>
+                                @elseif($lr)
+                                    <span class="text-slate-400 italic">(kosong)</span>
+                                @else
+                                    <span class="text-orange-500">—</span>
+                                @endif
+                            </td>
+                            <td class="px-2 py-2 text-center text-xs text-slate-400 border-r border-slate-200">→</td>
+                            <td class="px-2 py-2 text-center text-xs border-r border-slate-200">
+                                @if($mismatch)
+                                    <span class="text-red-500" title="Ledger ada komponen, target tidak">⚠️</span>
+                                @elseif($extraTarget)
+                                    <span class="text-amber-500" title="Extra row di target">+</span>
+                                @elseif($extraLedger)
+                                    <span class="text-orange-500" title="Extra row di ledger">+</span>
+                                @else
+                                    <span class="text-green-500">✓</span>
+                                @endif
+                            </td>
+                            <td class="px-3 py-2 font-mono text-xs border-r border-slate-200">{{ $mr['excel_row'] ?? '-' }}</td>
+                            <td class="px-3 py-2 font-mono text-xs border-r border-slate-200">{{ $mr['cost_center'] ?: '-' }}</td>
+                            <td class="px-3 py-2 font-mono text-xs text-right border-r border-slate-200">{{ $mr ? number_format($mr['amount'], 0) : '-' }}</td>
+                            <td class="px-3 py-2 text-xs border-r border-slate-200 max-w-[120px] truncate" title="{{ $mr['current_text'] ?? '' }}">{{ $mr['current_text'] ?? '-' }}</td>
+                            <td class="px-3 py-2 text-xs max-w-[160px] truncate" title="{{ $mr['default_label'] ?? '' }}">{{ $mr['default_label'] ?? '-' }}</td>
+                        </tr>
+                    @endfor
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
+
     <form action="{{ route('fill_text.subtype.apply') }}" method="POST" class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden mb-6">
         @csrf
 
